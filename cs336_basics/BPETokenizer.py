@@ -52,17 +52,27 @@ def find_chunk_boundaries(
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
 
-def pretokenize(text: str) -> list[bytes]:
+def remove_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
+    """Split on the special tokens"""
+    parts = re.split("|".join(re.escape(tok) for tok in special_tokens), text)
+    return parts
+
+def pretokenize(text: str, special_tokens: list[str]) -> list[bytes]:
+    parts = remove_special_tokens(text, special_tokens)
 
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-    str_tokens = re.findall(PAT, text)
-    tokens = [s.encode('utf-8') for s in str_tokens]
+    tokens_list = []
+    for part in parts:
+        str_tokens = re.findall(PAT, part)
+        part_tokens = [s.encode('utf-8') for s in str_tokens]
+        tokens_list.append(part_tokens)
+    tokens = [token for part_tokens in tokens_list for token in part_tokens]
     return tokens
 
-def worker(text: str, q: Queue):
-    pretokens = pretokenize(text)
+def worker(text: str, special_tokens: list[str], q: Queue):
+    pretokens = pretokenize(text, special_tokens)
     q.put(pretokens)
-    print("done")
+    # print("done")
 
 def train_bpe(
     input_path: str | os.PathLike,
@@ -93,29 +103,31 @@ def train_bpe(
     """
     num_merges = max(vocab_size - len(special_tokens) - 256, 0)
 
+    # Initialize vocab
+    vocab = {}
     vocab = {x:bytes([x]) for x in range(0,256)}
-    merges = []
     for i, token in enumerate(special_tokens):
         vocab[256+i] = token.encode("utf-8")
+    merges = []
+
 
     # Chunk the text file
-    num_processes = 8
+    num_processes = 1
     chunk_list = []
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, "<|endoftext|>".encode("utf-8"))
-    
+
         for start, end in zip(boundaries[:-1], boundaries[1:]):
             f.seek(start)
             chunk = f.read(end - start).decode("utf-8", errors="ignore")
             chunk_list.append(chunk)
-
 
     # Parallelizing pretokenization
     pretokens_list = []
     processes = []
     q = Queue()
     for chunk in chunk_list:
-        p = Process(target=worker, args=(chunk, q))
+        p = Process(target=worker, args=(chunk, special_tokens, q))
         p.start()
         processes.append(p)
 
@@ -123,7 +135,7 @@ def train_bpe(
 
     for p in processes:
         p.join()
-    print("Pretokenization done")
+    # print("Pretokenization done")
 
     pretokens = [token for tokens in pretokens_list for token in tokens]
 
@@ -136,11 +148,12 @@ def train_bpe(
                 counts[index1, index2] += 1
         
         max_pair = max(counts, key=counts.get)
-        merges.append(max_pair)
-
         index1, index2 = max_pair
+
         new_index = 256 + len(special_tokens) + i
+
         vocab[new_index] = vocab[index1] + vocab[index2]
+        merges.append((vocab[index1], vocab[index2]))
         
         pretokens = merge(pretokens, max_pair, new_index)
 
@@ -171,11 +184,12 @@ def merge(indices: list[list[int]], pair: (int, int), new_index: int) -> list[in
 
 
 if __name__ == "__main__":
-    file_path = "../data/TinyStoriesV2-GPT4-valid.txt"
-    vocab_size = 300
+    file_path = "./data/corpus.en"
+    vocab_size = 500
     special_tokens = ["<|endoftext|>"]
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
 
-    print({k : v for k,v in vocab.items() if k > 255})
+    # print({k : v for k,v in vocab.items() if k > 255})
+    print(vocab)
     print(merges)
