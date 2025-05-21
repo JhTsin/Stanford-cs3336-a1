@@ -58,6 +58,7 @@ def remove_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
     return parts
 
 def pretokenize(text: str, special_tokens: list[str]) -> list[bytes]:
+    """Seperating text into pretokens"""
     parts = remove_special_tokens(text, special_tokens)
 
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
@@ -70,6 +71,7 @@ def pretokenize(text: str, special_tokens: list[str]) -> list[bytes]:
     return tokens
 
 def worker(text: str, special_tokens: list[str], q: Queue):
+    """Worker pretokenizing process for multiprocessing"""
     pretokens = pretokenize(text, special_tokens)
     q.put(pretokens)
     # print("done")
@@ -112,7 +114,7 @@ def train_bpe(
 
 
     # Chunk the text file
-    num_processes = 1
+    num_processes = 8
     chunk_list = []
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, "<|endoftext|>".encode("utf-8"))
@@ -140,6 +142,7 @@ def train_bpe(
     pretokens = [token for tokens in pretokens_list for token in tokens]
 
     # Merging
+    # TODO: Optimizing the merging step
     for i in range(num_merges):
         counts = defaultdict(int)
 
@@ -147,7 +150,17 @@ def train_bpe(
             for index1, index2 in zip(pretoken, pretoken[1:]):
                 counts[index1, index2] += 1
         
-        max_pair = max(counts, key=counts.get)
+        # Prefer lexicographically greater pair
+        # Example: max([("A", "B"), ("A", "C"), ("B", "ZZ"), ("BA", "A")]) = ('BA', 'A')
+        max_pair = max(
+            counts.items(),
+            key=lambda x: (
+                x[1],  
+                vocab[x[0][0]].decode("utf-8", errors="ignore"),
+                vocab[x[0][1]].decode("utf-8", errors="ignore")
+            )
+        )[0]
+
         index1, index2 = max_pair
 
         new_index = 256 + len(special_tokens) + i
@@ -190,6 +203,9 @@ if __name__ == "__main__":
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
 
+    with open("./data/output_merges.txt", "w", encoding="utf-8") as f:
+        for m1, m2 in merges:
+            f.write(f"{m1} {m2}\n")
     # print({k : v for k,v in vocab.items() if k > 255})
     print(vocab)
     print(merges)
