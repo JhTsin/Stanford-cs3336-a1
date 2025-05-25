@@ -115,7 +115,7 @@ def train_bpe(
     merges = []
 
     # Chunk the text file
-    num_processes = 8
+    num_processes = 4
     chunk_list = []
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, "<|endoftext|>".encode("utf-8"))
@@ -138,22 +138,19 @@ def train_bpe(
 
     for p in processes:
         p.join()
-    # print("Pretokenization done")
 
     pretokens = [token for tokens in pretokens_list for token in tokens]
 
     # Merging
-    # TODO: Optimizing the merging step
+    counts = defaultdict(int)
+    index_dict = defaultdict(set)  # Store pretoken location for each pair
+
+    for j, pretoken in enumerate(pretokens):
+        for index1, index2 in zip(pretoken, pretoken[1:]):
+            counts[index1, index2] += 1
+            index_dict[index1, index2].add(j)
+
     for i in range(num_merges):
-        counts = defaultdict(int)
-        index_dict = defaultdict(list)  # Store pretoken location for each pair
-
-        for j, pretoken in enumerate(pretokens):
-            for index1, index2 in zip(pretoken, pretoken[1:]):
-                counts[index1, index2] += 1
-                index_dict[index1, index2].append(j)
-
-        
         # Prefer lexicographically greater pair
         # Example: max([("A", "B"), ("A", "C"), ("B", "ZZ"), ("BA", "A")]) = ('BA', 'A')
         max_pair = max(
@@ -172,30 +169,57 @@ def train_bpe(
         vocab[new_index] = vocab[index1] + vocab[index2]
         merges.append((vocab[index1], vocab[index2]))
         
-        merge(index_dict, pretokens, max_pair, new_index)
+        merge(counts, index_dict, pretokens, max_pair, new_index)
 
     return (vocab, merges)
 
-def merge(index_dict: dict[tuple[int, int],list[int]],indices: list[list[int]], max_pair: (int, int), new_index: int) -> list[int]:
-    """Merge the pairs with highest frequency"""
-    index_list = index_dict[max_pair]
+def merge(counts: dict[tuple[int, int], int], index_dict: dict[tuple[int, int],set[int]], pretokens: list[list[int]], max_pair: (int, int), new_index: int):
+    """Merge the pairs with highest frequency and update counts, index_dict"""
+    index_set = index_dict[max_pair]
 
-    for i in index_list:
-        j = 0
-        pretoken = indices[i]
+    for i in index_set:
+        pretoken = pretokens[i]
         new_pretoken = []
 
+        pos_list = []   # Store positions of max_pair for each new pretoken after merge
+        pos = 0
+        j = 0
+
+        # Replace max_pair with new_index in each pretoken
         while j < len(pretoken):
             if (j < len(pretoken)-1) and ((pretoken[j], pretoken[j+1]) == max_pair):
                 new_pretoken.append(new_index)
+                pos_list.append(pos)
                 j += 2
             else:
                 new_pretoken.append(pretoken[j])
                 j += 1
+            pos += 1
 
-        indices[i] = new_pretoken
+        # Update counts and index_dict
+        for pos in pos_list:
+            counts[max_pair] -= 1
 
-    return indices
+            if pos > 0:
+                if new_pretoken[pos-1] == new_index:
+                    counts[(max_pair[1], max_pair[0])] -= 1    
+                else:
+                    counts[(new_pretoken[pos-1], max_pair[0])] -= 1
+
+                counts[(new_pretoken[pos-1], new_pretoken[pos])] += 1
+                index_dict[(new_pretoken[pos-1], new_pretoken[pos])].add(i)
+
+            if pos < len(new_pretoken)-1:
+                if new_pretoken[pos+1] == new_index:
+                    counts[(max_pair[1], max_pair[0])] -= 1     
+                else:
+                    counts[(max_pair[1], new_pretoken[pos+1])] -= 1
+
+                counts[(new_pretoken[pos], new_pretoken[pos+1])] += 1
+                index_dict[(new_pretoken[pos], new_pretoken[pos+1])].add(i)
+
+        pretokens[i] = new_pretoken
+
 
 class BPETokenizer:
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str]| None = None):
