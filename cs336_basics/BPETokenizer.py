@@ -1,8 +1,10 @@
 import os
 import regex as re
 from typing import BinaryIO
+from typing import Iterable, Iterator
 from collections import defaultdict
 from multiprocessing import Process, Queue
+import time
 
 def find_chunk_boundaries(
     file: BinaryIO, 
@@ -112,7 +114,6 @@ def train_bpe(
         vocab[256+i] = token.encode("utf-8")
     merges = []
 
-
     # Chunk the text file
     num_processes = 8
     chunk_list = []
@@ -145,10 +146,13 @@ def train_bpe(
     # TODO: Optimizing the merging step
     for i in range(num_merges):
         counts = defaultdict(int)
+        index_dict = defaultdict(list)  # Store pretoken location for each pair
 
-        for pretoken in pretokens:
+        for j, pretoken in enumerate(pretokens):
             for index1, index2 in zip(pretoken, pretoken[1:]):
                 counts[index1, index2] += 1
+                index_dict[index1, index2].append(j)
+
         
         # Prefer lexicographically greater pair
         # Example: max([("A", "B"), ("A", "C"), ("B", "ZZ"), ("BA", "A")]) = ('BA', 'A')
@@ -168,44 +172,71 @@ def train_bpe(
         vocab[new_index] = vocab[index1] + vocab[index2]
         merges.append((vocab[index1], vocab[index2]))
         
-        pretokens = merge(pretokens, max_pair, new_index)
+        merge(index_dict, pretokens, max_pair, new_index)
 
     return (vocab, merges)
 
-def merge(indices: list[list[int]], pair: (int, int), new_index: int) -> list[int]:
+def merge(index_dict: dict[tuple[int, int],list[int]],indices: list[list[int]], max_pair: (int, int), new_index: int) -> list[int]:
     """Merge the pairs with highest frequency"""
-    new_indices = []
-    i = 0
+    index_list = index_dict[max_pair]
 
-    while i < len(indices):
+    for i in index_list:
         j = 0
         pretoken = indices[i]
         new_pretoken = []
 
         while j < len(pretoken):
-            if (j < len(pretoken)-1) and ((pretoken[j], pretoken[j+1]) == pair):
+            if (j < len(pretoken)-1) and ((pretoken[j], pretoken[j+1]) == max_pair):
                 new_pretoken.append(new_index)
                 j += 2
             else:
                 new_pretoken.append(pretoken[j])
                 j += 1
 
-        new_indices.append(new_pretoken)
-        i += 1
+        indices[i] = new_pretoken
 
-    return new_indices
+    return indices
+
+class BPETokenizer:
+    def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str]| None = None):
+        self.vocab = vocab
+        self.merges = merges
+        self.special_tokens = special_tokens
+
+    @classmethod
+    def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
+        """Class method that constructs and return a Tokenizer from a serialized vocabulary and list of merges"""
+        raise NotImplementedError
+
+    def encode(self, text:str) -> list[int]:
+        """Encode an input text into a sequence of token IDs."""
+        pretokens = pretokenize(text)
+        # for pretoken in pretokens:
 
 
-if __name__ == "__main__":
+    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
+        """Given an iterable of strings (e.g., a Python file handle), 
+        return a generator that lazily yields token IDs. 
+        This is required for memory-eﬀicient tokenization of large files 
+        that we cannot directly load into memory.
+        """
+
+    def decode(self, ids: list[int]) -> str:
+        """Decode a sequence of token IDs into text."""
+
+def main():
     file_path = "./data/corpus.en"
     vocab_size = 500
     special_tokens = ["<|endoftext|>"]
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
 
-    with open("./data/output_merges.txt", "w", encoding="utf-8") as f:
-        for m1, m2 in merges:
-            f.write(f"{m1} {m2}\n")
+    # with open("./data/output_merges.txt", "w", encoding="utf-8") as f:
+    #     for m1, m2 in merges:
+    #         f.write(f"{m1} {m2}\n")
     # print({k : v for k,v in vocab.items() if k > 255})
     print(vocab)
     print(merges)
+
+if __name__ == "__main__":
+    main()
