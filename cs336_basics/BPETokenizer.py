@@ -247,6 +247,21 @@ class BPETokenizer:
 
     def decode(self, ids: list[int]) -> str:
         """Decode a sequence of token IDs into text."""
+        parts = []
+        vocab_size = len(self.vocab)
+        replacement_char = "\uFFFD"
+
+        for token_id in ids:
+            if token_id < vocab_size:
+                token = self.vocab[token_id]    # bytes
+            else:
+                token = bytes(replacement_char, encoding='utf-8')   # Replace tokens with Unicode replacement characters if index out of bounds
+
+            decoded = token.decode(encoding='utf-8', errors='replace')
+            parts.append(decoded)
+
+        return "".join(parts)
+
 
 def main():
     file_path = "./data/corpus.en"
@@ -254,13 +269,14 @@ def main():
     special_tokens = ["<|endoftext|>"]
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
+    tokenizer = BPETokenizer(vocab, merges, special_tokens)
+    # encoded = tokenizer.encode("I would like to offer you the opportunity!")
+    encoded = [278, 360, 36, 267, 450, 499, 500]
+    decoded = tokenizer.decode(encoded)
 
-    # with open("./data/output_merges.txt", "w", encoding="utf-8") as f:
-    #     for m1, m2 in merges:
-    #         f.write(f"{m1} {m2}\n")
-    # print({k : v for k,v in vocab.items() if k > 255})
-    print(vocab)
-    print(merges)
+    print(decoded)
+    # print(vocab)
+    # print(merges)
 
 if __name__ == "__main__":
     main()
