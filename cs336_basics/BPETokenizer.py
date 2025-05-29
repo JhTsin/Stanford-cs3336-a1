@@ -105,6 +105,7 @@ def train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
+    special_tokens = special_tokens or []
     num_merges = max(vocab_size - len(special_tokens) - 256, 0)
 
     # Initialize vocab
@@ -168,7 +169,7 @@ def train_bpe(
 
         vocab[new_index] = vocab[index1] + vocab[index2]
         merges.append((vocab[index1], vocab[index2]))
-        
+
         merge(counts, index_dict, pretokens, max_pair, new_index)
 
     return (vocab, merges)
@@ -225,7 +226,7 @@ class BPETokenizer:
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str]| None = None):
         self.vocab = vocab
         self.merges = merges
-        self.special_tokens = special_tokens
+        self.special_tokens = special_tokens or []
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
@@ -234,9 +235,24 @@ class BPETokenizer:
 
     def encode(self, text:str) -> list[int]:
         """Encode an input text into a sequence of token IDs."""
-        pretokens = pretokenize(text)
-        # for pretoken in pretokens:
+        # TODO: deal with the special tokens should not add len(special_tokens)
+        vocab_merged = {k: v for k, v in self.vocab.items() if k > 255 + len(self.special_tokens)} 
+        pretokens = pretokenize(text, self.special_tokens)   # list[bytes]
+        for i, pretoken in enumerate(pretokens):
+            for new_index, merge in zip(vocab_merged.keys(), self.merges):
+                new_pretoken = []
+                j = 0
+                while j < len(pretoken):
+                    if (j < len(pretoken)-1) and ((pretoken[j], pretoken[j+1]) == merge):
+                        new_pretoken.append(new_index)
+                        j += 2
+                    else:
+                        new_pretoken.append(pretoken[j])
+                        j += 1
+                pretokens[i] = new_pretoken
 
+        tokens = [token for pretoken in pretokens for token in pretoken] 
+        return tokens
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
         """Given an iterable of strings (e.g., a Python file handle), 
@@ -266,15 +282,20 @@ class BPETokenizer:
 def main():
     file_path = "./data/corpus.en"
     vocab_size = 500
-    special_tokens = ["<|endoftext|>"]
+    # special_tokens = ["<|endoftext|>"]
+    special_tokens = None
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
-    # encoded = tokenizer.encode("I would like to offer you the opportunity!")
-    encoded = [278, 360, 36, 267, 450, 499, 500]
-    decoded = tokenizer.decode(encoded)
 
-    print(decoded)
+    test_string = "s"
+    encoded = tokenizer.encode(test_string)
+    # encoded = [278, 360, 36, 267, 450, 499, 500]
+    # print(encoded)
+    decoded = tokenizer.decode(encoded)       
+
+    print(test_string == decoded)
+
     # print(vocab)
     # print(merges)
 
