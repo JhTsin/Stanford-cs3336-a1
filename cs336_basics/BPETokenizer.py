@@ -235,15 +235,30 @@ class BPETokenizer:
 
     def encode(self, text:str) -> list[int]:
         """Encode an input text into a sequence of token IDs."""
-        # TODO: deal with the special tokens should not add len(special_tokens)
-        vocab_merged = {k: v for k, v in self.vocab.items() if k > 255 + len(self.special_tokens)} 
-        pretokens = pretokenize(text, self.special_tokens)   # list[bytes]
+
+        # TODO: not considering special tokens
+        # vocab_merged = {k: v for k, v in self.vocab.items() if k > 255} 
+        vocab_reversed = {v: k for k, v in self.vocab.items()}  # bytes: int
+        byte_pretokens = pretokenize(text, self.special_tokens)   # list[bytes]
+
+        pretokens = []  # list[list[int]]
+
+        # Convert pretokens from bytes to list[int] by vocab
+        for i, pretoken in enumerate(byte_pretokens):
+            # unicode_string = pretoken.decode('utf-8')
+            new_pretoken = []
+            for b in pretoken:
+                index = vocab_reversed[bytes([b])]
+                new_pretoken.append(index)
+            pretokens.append(new_pretoken)
+
         for i, pretoken in enumerate(pretokens):
-            for new_index, merge in zip(vocab_merged.keys(), self.merges):
+            for merge in self.merges:
                 new_pretoken = []
+                new_index = vocab_reversed[merge[0] + merge[1]]
                 j = 0
                 while j < len(pretoken):
-                    if (j < len(pretoken)-1) and ((pretoken[j], pretoken[j+1]) == merge):
+                    if (j < len(pretoken)-1) and ((self.vocab[pretoken[j]], self.vocab[pretoken[j+1]]) == merge):
                         new_pretoken.append(new_index)
                         j += 2
                     else:
@@ -263,7 +278,7 @@ class BPETokenizer:
 
     def decode(self, ids: list[int]) -> str:
         """Decode a sequence of token IDs into text."""
-        parts = []
+        tokens = bytes()
         vocab_size = len(self.vocab)
         replacement_char = "\uFFFD"
 
@@ -273,10 +288,10 @@ class BPETokenizer:
             else:
                 token = bytes(replacement_char, encoding='utf-8')   # Replace tokens with Unicode replacement characters if index out of bounds
 
-            decoded = token.decode(encoding='utf-8', errors='replace')
-            parts.append(decoded)
+            tokens += token
+        decoded = tokens.decode(encoding='utf-8', errors='replace')
 
-        return "".join(parts)
+        return decoded
 
 
 def main():
@@ -287,17 +302,19 @@ def main():
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
+    # print(merges)
 
-    test_string = "s"
+    test_string = "🥺"
     encoded = tokenizer.encode(test_string)
     # encoded = [278, 360, 36, 267, 450, 499, 500]
-    # print(encoded)
+    print("encoded:",encoded)
     decoded = tokenizer.decode(encoded)       
+    print("decoded:", decoded)
 
     print(test_string == decoded)
 
     # print(vocab)
-    # print(merges)
+    
 
 if __name__ == "__main__":
     main()
