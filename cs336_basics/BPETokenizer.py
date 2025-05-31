@@ -264,7 +264,10 @@ class BPETokenizer:
                     else:
                         new_pretoken.append(pretoken[j])
                         j += 1
-                pretokens[i] = new_pretoken
+
+                pretoken = new_pretoken
+
+            pretokens[i] = pretoken
 
         tokens = [token for pretoken in pretokens for token in pretoken] 
         return tokens
@@ -291,7 +294,7 @@ class BPETokenizer:
             tokens += token
         decoded = tokens.decode(encoding='utf-8', errors='replace')
 
-        return decoded
+        return decoded 
 
 
 def main():
@@ -304,9 +307,8 @@ def main():
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
     # print(merges)
 
-    test_string = "🥺"
+    test_string = "I have to get the hang of it."
     encoded = tokenizer.encode(test_string)
-    # encoded = [278, 360, 36, 267, 450, 499, 500]
     print("encoded:",encoded)
     decoded = tokenizer.decode(encoded)       
     print("decoded:", decoded)
