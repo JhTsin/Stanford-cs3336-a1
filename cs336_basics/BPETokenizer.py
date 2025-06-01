@@ -55,20 +55,35 @@ def find_chunk_boundaries(
     return sorted(set(chunk_boundaries))
 
 def remove_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
-    """Split on the special tokens"""
-    parts = re.split("|".join(re.escape(tok) for tok in special_tokens), text)
+    """
+    Split on the special tokens
+    example: 
+        text = "Hello world! <|endoftext|> Great!" 
+        special_tokens = "<|endoftext|>"
+        result = ['Hello world! ', '<|endoftext|>', ' Great!']
+    """
+    pattern = "|".join(re.escape(tok) for tok in special_tokens)
+    parts = re.split('(' + pattern + ')', text)
     return parts
 
-def pretokenize(text: str, special_tokens: list[str]) -> list[bytes]:
-    """Seperating text into pretokens"""
+def pretokenize(text: str, special_tokens: list[str], drop_special_token: bool = True) -> list[bytes]:
+    """
+    Seperating text into pretokens
+    Special tokens are independent pretokens
+    """
     parts = remove_special_tokens(text, special_tokens)
 
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     tokens_list = []
     for part in parts:
-        str_tokens = re.findall(PAT, part)
-        part_tokens = [s.encode('utf-8') for s in str_tokens]
-        tokens_list.append(part_tokens)
+        if part in special_tokens:
+            if not drop_special_token:  # Keep special tokens, otherwise ignore
+                spec_tok_bytes = part.encode('utf-8')
+                tokens_list.append([spec_tok_bytes])
+        else:
+            str_tokens = re.findall(PAT, part)
+            part_tokens = [s.encode('utf-8') for s in str_tokens]
+            tokens_list.append(part_tokens)
     tokens = [token for part_tokens in tokens_list for token in part_tokens]
     return tokens
 
@@ -236,20 +251,23 @@ class BPETokenizer:
     def encode(self, text:str) -> list[int]:
         """Encode an input text into a sequence of token IDs."""
 
-        # TODO: not considering special tokens
-        # vocab_merged = {k: v for k, v in self.vocab.items() if k > 255} 
         vocab_reversed = {v: k for k, v in self.vocab.items()}  # bytes: int
-        byte_pretokens = pretokenize(text, self.special_tokens)   # list[bytes]
-
+        byte_pretokens = pretokenize(text, self.special_tokens, drop_special_token=False)   # list[bytes]
+        byte_special_tokens = [token.encode('utf-8') for token in self.special_tokens]
         pretokens = []  # list[list[int]]
 
         # Convert pretokens from bytes to list[int] by vocab
         for i, pretoken in enumerate(byte_pretokens):
             # unicode_string = pretoken.decode('utf-8')
             new_pretoken = []
-            for b in pretoken:
-                index = vocab_reversed[bytes([b])]
+
+            if pretoken in byte_special_tokens:
+                index = vocab_reversed[pretoken]
                 new_pretoken.append(index)
+            else:
+                for b in pretoken:
+                    index = vocab_reversed[bytes([b])]
+                    new_pretoken.append(index)
             pretokens.append(new_pretoken)
 
         for i, pretoken in enumerate(pretokens):
@@ -307,7 +325,8 @@ def main():
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
     # print(merges)
 
-    test_string = "I have to get the hang of it."
+    # test_string = "I have to get the hang of it."
+    test_string = "我爱你"
     encoded = tokenizer.encode(test_string)
     print("encoded:",encoded)
     decoded = tokenizer.decode(encoded)       
@@ -316,7 +335,13 @@ def main():
     print(test_string == decoded)
 
     # print(vocab)
-    
+
+def test():
+    text = "hello world <|endoftext|>, I love you so much!!"
+    special_tokens = ["<|endoftext|>"]
+    parts = remove_special_tokens(text, special_tokens)
+    print(parts)
 
 if __name__ == "__main__":
     main()
+    # test()
