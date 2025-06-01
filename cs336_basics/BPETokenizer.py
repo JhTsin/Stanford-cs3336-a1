@@ -54,7 +54,7 @@ def find_chunk_boundaries(
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
 
-def remove_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
+def split_by_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
     """
     Split on the special tokens
     example: 
@@ -62,8 +62,12 @@ def remove_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
         special_tokens = "<|endoftext|>"
         result = ['Hello world! ', '<|endoftext|>', ' Great!']
     """
-    pattern = "|".join(re.escape(tok) for tok in special_tokens)
-    parts = re.split('(' + pattern + ')', text)
+    if not special_tokens:
+        parts = [text]
+    else:
+        pattern = "|".join(re.escape(tok) for tok in special_tokens)
+        parts = re.split('(' + pattern + ')', text)
+
     return parts
 
 def pretokenize(text: str, special_tokens: list[str], drop_special_token: bool = True) -> list[bytes]:
@@ -71,7 +75,7 @@ def pretokenize(text: str, special_tokens: list[str], drop_special_token: bool =
     Seperating text into pretokens
     Special tokens are independent pretokens
     """
-    parts = remove_special_tokens(text, special_tokens)
+    parts = split_by_special_tokens(text, special_tokens)
 
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     tokens_list = []
@@ -266,10 +270,14 @@ class BPETokenizer:
                 new_pretoken.append(index)
             else:
                 for b in pretoken:
+                    # print(pretoken)
+                    # print(b)
                     index = vocab_reversed[bytes([b])]
                     new_pretoken.append(index)
+                    # print(index)
             pretokens.append(new_pretoken)
 
+        # Merge
         for i, pretoken in enumerate(pretokens):
             for merge in self.merges:
                 new_pretoken = []
@@ -319,14 +327,13 @@ def main():
     file_path = "./data/corpus.en"
     vocab_size = 500
     # special_tokens = ["<|endoftext|>"]
-    special_tokens = None
+    special_tokens = ["<|endoftext|>"]
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
     # print(merges)
 
-    # test_string = "I have to get the hang of it."
-    test_string = "我爱你"
+    test_string = "hello world <|endoftext|>, I love you so much!!"
     encoded = tokenizer.encode(test_string)
     print("encoded:",encoded)
     decoded = tokenizer.decode(encoded)       
