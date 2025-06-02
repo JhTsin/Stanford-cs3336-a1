@@ -62,10 +62,11 @@ def split_by_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
         special_tokens = "<|endoftext|>"
         result = ['Hello world! ', '<|endoftext|>', ' Great!']
     """
-    if not special_tokens:
+    special_tokens_sorted = sorted(special_tokens, key=lambda x: -len(x))
+    if not special_tokens_sorted:
         parts = [text]
     else:
-        pattern = "|".join(re.escape(tok) for tok in special_tokens)
+        pattern = "|".join(re.escape(tok) for tok in special_tokens_sorted)
         parts = re.split('(' + pattern + ')', text)
 
     return parts
@@ -262,7 +263,7 @@ class BPETokenizer:
 
         # Convert pretokens from bytes to list[int] by vocab
         for i, pretoken in enumerate(byte_pretokens):
-            # unicode_string = pretoken.decode('utf-8')
+
             new_pretoken = []
 
             if pretoken in byte_special_tokens:
@@ -270,11 +271,9 @@ class BPETokenizer:
                 new_pretoken.append(index)
             else:
                 for b in pretoken:
-                    # print(pretoken)
-                    # print(b)
                     index = vocab_reversed[bytes([b])]
                     new_pretoken.append(index)
-                    # print(index)
+
             pretokens.append(new_pretoken)
 
         # Merge
@@ -327,16 +326,16 @@ def main():
     file_path = "./data/corpus.en"
     vocab_size = 500
     # special_tokens = ["<|endoftext|>"]
-    special_tokens = ["<|endoftext|>"]
+    special_tokens = ["<|endoftext|>", "<|endoftext|><|endoftext|>"]
 
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
     # print(merges)
 
-    test_string = "hello world <|endoftext|>, I love you so much!!"
+    test_string = "Hello, how <|endoftext|><|endoftext|> are you?<|endoftext|>"
     encoded = tokenizer.encode(test_string)
     print("encoded:",encoded)
-    decoded = tokenizer.decode(encoded)       
+    decoded = [tokenizer.decode([x]) for x in encoded]
     print("decoded:", decoded)
 
     print(test_string == decoded)
@@ -344,10 +343,12 @@ def main():
     # print(vocab)
 
 def test():
-    text = "hello world <|endoftext|>, I love you so much!!"
-    special_tokens = ["<|endoftext|>"]
-    parts = remove_special_tokens(text, special_tokens)
-    print(parts)
+    import tiktoken
+    tokenizer = tiktoken.get_encoding('gpt2')
+    test_string = "Hello, how <|endoftext|><|endoftext|> are you?<|endoftext|>"
+    ids = tokenizer.encode(test_string, allowed_special={"<|endoftext|><|endoftext|>", "<|endoftext|>"})
+    decoded = [tokenizer.decode([x]) for x in ids]
+    print(decoded)
 
 if __name__ == "__main__":
     main()
