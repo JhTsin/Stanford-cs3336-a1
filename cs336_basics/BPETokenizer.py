@@ -303,6 +303,10 @@ class BPETokenizer:
         This is required for memory-eﬀicient tokenization of large files 
         that we cannot directly load into memory.
         """
+        for line in iterable:
+            for idx in self.encode(line):
+                yield idx
+
 
     def decode(self, ids: list[int]) -> str:
         """Decode a sequence of token IDs into text."""
