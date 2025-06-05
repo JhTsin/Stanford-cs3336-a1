@@ -17,16 +17,16 @@ class Linear(nn.Module):
         self.device = device
         self.dtype = dtype
 
-        W_init = self.initialize_Weights()
+        W_init = self.initialize_Weights(out_features, in_features)
         self.weight = nn.Parameter(W_init)
 
-    def initialize_Weights(self) -> torch.Tensor:
+    def initialize_Weights(self, out_dim: int, in_dim: int) -> torch.Tensor:
         """
         Initialize the weights W using truncated normal method
         """
-        W = torch.empty(self.out_features, self.in_features)
+        W = torch.empty(out_dim, in_dim)
         mean = 0
-        std = np.sqrt(2 / (self.in_features + self.out_features))
+        std = np.sqrt(2 / (in_dim + out_dim))
 
         nn.init.trunc_normal_(W, mean, std, -3*std, 3*std)
         return W
