@@ -12,19 +12,21 @@ class Linear(nn.Module):
         dtype: torch.dtype | None = None Data type of the parameters
         """
         super().__init__()
+        factory_kwargs = {"device": device, "dtype": dtype}
+
         self.in_features = in_features
         self.out_features = out_features
         self.device = device
         self.dtype = dtype
 
-        W_init = self.initialize_Weights(out_features, in_features)
-        self.weight = nn.Parameter(W_init)
+        w_init = self.initialize_Weights(out_features, in_features, factory_kwargs)
+        self.weight = nn.Parameter(w_init)
 
-    def initialize_Weights(self, out_dim: int, in_dim: int) -> torch.Tensor:
+    def initialize_Weights(self, out_dim: int, in_dim: int, factory_kwargs: dict) -> torch.Tensor:
         """
         Initialize the weights W using truncated normal method
         """
-        W = torch.empty(out_dim, in_dim)
+        W = torch.empty(out_dim, in_dim, **factory_kwargs)
         mean = 0
         std = np.sqrt(2 / (in_dim + out_dim))
 

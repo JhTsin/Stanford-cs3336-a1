@@ -12,19 +12,21 @@ class Embedding(nn.Module):
         dtype: torch.dtype | None = None Data type of the parameters
         """
         super().__init__()
+        factory_kwargs = {"device": device, "dtype": dtype}
+
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.device = device
         self.dtype = dtype
 
-        W_init = self.initialize_Weights(num_embeddings, embedding_dim)
-        self.weight = nn.Parameter(W_init)
+        w_init = self.initialize_Weights(num_embeddings, embedding_dim, factory_kwargs)
+        self.weight = nn.Parameter(w_init)
 
-    def initialize_Weights(self, vocab_size: int, d_model: int) -> torch.Tensor:
+    def initialize_Weights(self, vocab_size: int, d_model: int, factory_kwargs: dict) -> torch.Tensor:
         """
         Initialize the weights W using truncated normal method
         """
-        W = torch.empty(vocab_size, d_model)
+        W = torch.empty(vocab_size, d_model, **factory_kwargs)
         mean = 0
         std = np.sqrt(2 / (vocab_size + d_model))
 
