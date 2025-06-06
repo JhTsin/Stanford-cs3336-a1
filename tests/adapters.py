@@ -9,9 +9,10 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
-from cs336_basics.BPETokenizer import train_bpe, BPETokenizer
-from cs336_basics.Linear import Linear
-from cs336_basics.Embedding import Embedding
+from code.BPETokenizer import train_bpe, BPETokenizer
+from code.Linear import Linear
+from code.Embedding import Embedding
+from code.RMSNorm import RMSNorm
 
 def run_linear(
     d_in: int,
@@ -386,7 +387,10 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    model = RMSNorm(d_model, eps)
+    model.weight.data.copy_(weights)
+    output = model(in_features)
+    return output
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
