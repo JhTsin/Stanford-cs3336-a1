@@ -28,9 +28,9 @@ class Embedding(nn.Module):
         """
         W = torch.empty(vocab_size, d_model, **factory_kwargs)
         mean = 0
-        std = np.sqrt(2 / (vocab_size + d_model))
+        std = 1
 
-        nn.init.trunc_normal_(W, mean, std, -3*std, 3*std)
+        nn.init.trunc_normal_(W, mean, std, -3, 3)
         return W
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
