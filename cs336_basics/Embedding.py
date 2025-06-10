@@ -6,10 +6,11 @@ class Embedding(nn.Module):
     def __init__(self, num_embeddings: int, embedding_dim: int, 
         device: torch.device | None = None, dtype: torch.dtype | None = None):
         """
-        num_embeddings: int Size of the vocabulary
-        embedding_dim: int Dimension of the embedding vectors
-        device: torch.device | None = None Device to store the parameters on 
-        dtype: torch.dtype | None = None Data type of the parameters
+        Args:
+            num_embeddings: int Size of the vocabulary
+            embedding_dim: int Dimension of the embedding vectors
+            device: torch.device | None = None Device to store the parameters on 
+            dtype: torch.dtype | None = None Data type of the parameters
         """
         super().__init__()
         factory_kwargs = {"device": device, "dtype": dtype}
@@ -36,8 +37,11 @@ class Embedding(nn.Module):
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         """
         Lookup the embedding vectors for the given token IDs.
-        token_ids: (batch_size, sequence_length)
-        output: (batch_size, sequence_length, embedding_dim)
+        Args:
+            token_ids: (batch_size, sequence_length)
+            output: (batch_size, sequence_length, embedding_dim)
+        Returns:
+            embeddings for given token IDs
         """
         batch_size, sequence_length = token_ids.shape
         output = torch.empty(batch_size, sequence_length, self.embedding_dim)
