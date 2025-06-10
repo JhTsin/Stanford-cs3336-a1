@@ -9,10 +9,11 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
-from code.BPETokenizer import train_bpe, BPETokenizer
-from code.Linear import Linear
-from code.Embedding import Embedding
-from code.RMSNorm import RMSNorm
+from cs336_basics.BPETokenizer import train_bpe, BPETokenizer
+from cs336_basics.Linear import Linear
+from cs336_basics.Embedding import Embedding
+from cs336_basics.RMSNorm import RMSNorm
+from cs336_basics.PositionwiseFeedForward import PositionwiseFeedForward
 
 def run_linear(
     d_in: int,
@@ -92,7 +93,12 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu = PositionwiseFeedForward(d_model, d_ff)
+    swiglu.w1.weight.data = w1_weight
+    swiglu.w2.weight.data = w2_weight
+    swiglu.w3.weight.data = w3_weight
+    output = swiglu(in_features)
+    return output
 
 
 def run_scaled_dot_product_attention(
