@@ -29,11 +29,11 @@ class RotaryPositionalEmbedding(nn.Module):
     
     def generate_rotation_matrix(self, theta: float, d_k: int, max_seq_len: int):
         """
-        Generate the rotation matrix
+        Generate the rotation matrix    
         """
         rotation_matrix_table = torch.zeros(max_seq_len, d_k, d_k)
         for i in range(max_seq_len):
-            blocks = [self.generate_rotation_block(theta, k, i, d_k) for k in range(1, d_k // 2 + 1)]
+            blocks = [self.generate_rotation_block(theta, k, i, d_k) for k in range(d_k // 2)]
             rotation_matrix_table[i, :, :] = torch.block_diag(*blocks)
         return rotation_matrix_table
     
