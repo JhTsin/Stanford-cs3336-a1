@@ -46,7 +46,9 @@ class RotaryPositionalEmbedding(nn.Module):
         Returns:
             Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
         """
-
+        *prefix_dims, seq_len, d_k = x.shape
+        if token_positions is None:
+            token_positions = torch.arange(seq_len, device=x.device)
         rotation_matrix = self.rotation_matrix_table[token_positions]   # (batch_size, seq_len, d_k, d_k)
         x_rotated = rotation_matrix @ x.unsqueeze(-1)
         x_rotated = x_rotated.squeeze(-1)
