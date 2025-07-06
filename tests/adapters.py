@@ -16,7 +16,7 @@ from cs336_basics.RMSNorm import RMSNorm
 from cs336_basics.PositionwiseFeedForward import PositionwiseFeedForward
 from cs336_basics.RotaryPositionalEmbedding import RotaryPositionalEmbedding
 from cs336_basics.Attention import softmax, scaled_dot_product_attention, MultiheadSelfAttention
-
+from cs336_basics.Transformer import Transformer
 
 def run_linear(
     d_in: int,
@@ -97,9 +97,9 @@ def run_swiglu(
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
     swiglu = PositionwiseFeedForward(d_model, d_ff)
-    swiglu.w1.weight.data = w1_weight
-    swiglu.w2.weight.data = w2_weight
-    swiglu.w3.weight.data = w3_weight
+    swiglu.w1.weight.data.copy_(w1_weight)
+    swiglu.w2.weight.data.copy_(w2_weight)
+    swiglu.w3.weight.data.copy_(w3_weight)
     output = swiglu(in_features)
     return output
 
@@ -307,8 +307,25 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    model = Transformer(
+        d_model=d_model,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        max_seq_len=max_seq_len,
+        theta=theta
+    )
+    model.attn.q_proj.weight.data.copy_(weights["attn.q_proj.weight"])
+    model.attn.k_proj.weight.data.copy_(weights["attn.k_proj.weight"])
+    model.attn.v_proj.weight.data.copy_(weights["attn.v_proj.weight"])
+    model.attn.o_proj.weight.data.copy_(weights["attn.output_proj.weight"])
+    model.rms_norm1.weight.data.copy_(weights["ln1.weight"])
+    model.ff.w1.weight.data.copy_(weights["ffn.w1.weight"])
+    model.ff.w2.weight.data.copy_(weights["ffn.w2.weight"])
+    model.ff.w3.weight.data.copy_(weights["ffn.w3.weight"])
+    model.rms_norm2.weight.data.copy_(weights["ln2.weight"])
 
+    output = model(in_features)
+    return output
 
 def run_transformer_lm(
     vocab_size: int,
