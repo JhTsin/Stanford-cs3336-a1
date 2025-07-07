@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 from .Linear import Linear
 
+
+def silu(x: torch.Tensor) -> torch.Tensor:
+        return x * torch.sigmoid(x)
+
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model: int, d_ff: int):
         """
@@ -20,8 +24,6 @@ class PositionwiseFeedForward(nn.Module):
         self.w2 = Linear(d_ff, d_model)
         self.w3 = Linear(d_model, d_ff)
         
-    def silu(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.sigmoid(x)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -32,6 +34,6 @@ class PositionwiseFeedForward(nn.Module):
         Returns:
             Float[Tensor, "... d_model"]: Output embeddings of the same shape as the input embeddings
         """
-        output = self.w2(self.silu(self.w1(x)) * self.w3(x))
+        output = self.w2(silu(self.w1(x)) * self.w3(x))
         return output
     
