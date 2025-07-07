@@ -17,6 +17,7 @@ from cs336_basics.PositionwiseFeedForward import PositionwiseFeedForward, silu
 from cs336_basics.RotaryPositionalEmbedding import RotaryPositionalEmbedding
 from cs336_basics.Attention import softmax, scaled_dot_product_attention, MultiheadSelfAttention
 from cs336_basics.Transformer import Transformer, TransformerLM
+from cs336_basics.Loss import cross_entropy_loss
 
 def run_linear(
     d_in: int,
@@ -529,7 +530,8 @@ def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: 
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    loss = cross_entropy_loss(inputs=inputs, targets=targets)
+    return loss
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
