@@ -13,7 +13,7 @@ from cs336_basics.BPETokenizer import train_bpe, BPETokenizer
 from cs336_basics.Linear import Linear
 from cs336_basics.Embedding import Embedding
 from cs336_basics.RMSNorm import RMSNorm
-from cs336_basics.PositionwiseFeedForward import PositionwiseFeedForward
+from cs336_basics.PositionwiseFeedForward import PositionwiseFeedForward, silu
 from cs336_basics.RotaryPositionalEmbedding import RotaryPositionalEmbedding
 from cs336_basics.Attention import softmax, scaled_dot_product_attention, MultiheadSelfAttention
 from cs336_basics.Transformer import Transformer, TransformerLM
@@ -473,7 +473,8 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    output = silu(in_features)
+    return output
 
 
 def run_get_batch(
