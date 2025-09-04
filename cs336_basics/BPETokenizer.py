@@ -5,6 +5,7 @@ from typing import Iterable, Iterator
 from collections import defaultdict
 from multiprocessing import Process, Queue
 import time
+from tqdm import tqdm
 
 def find_chunk_boundaries(
     file: BinaryIO, 
@@ -86,17 +87,21 @@ def pretokenize(text: str, special_tokens: list[str], drop_special_token: bool =
                 spec_tok_bytes = part.encode('utf-8')
                 tokens_list.append([spec_tok_bytes])
         else:
-            str_tokens = re.findall(PAT, part)
+            str_tokens = re.findall(PAT, part)  #re.finditer(PAT, part)更好
             part_tokens = [s.encode('utf-8') for s in str_tokens]
             tokens_list.append(part_tokens)
     tokens = [token for part_tokens in tokens_list for token in part_tokens]
     return tokens
 
 def worker(text: str, special_tokens: list[str], q: Queue):
-    """Worker pretokenizing process for multiprocessing"""
-    pretokens = pretokenize(text, special_tokens)
-    q.put(pretokens)
-    # print("done")
+    try:
+        print("[worker] start")
+        pretokens = pretokenize(text, special_tokens)
+        print("[worker] done pretokenize, len:", len(pretokens))
+        q.put(pretokens)
+    except Exception as e:
+        print("[worker] error:", e)
+        q.put([])
 
 def train_bpe(
     input_path: str | os.PathLike,
@@ -125,6 +130,7 @@ def train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
+    print("train_bpe: start")
     special_tokens = special_tokens or []
     num_merges = max(vocab_size - len(special_tokens) - 256, 0)
 
@@ -146,32 +152,47 @@ def train_bpe(
             chunk = f.read(end - start).decode("utf-8", errors="ignore")
             chunk_list.append(chunk)
 
+    print("train_bpe: after chunking")
+    print("chunk_list len:", len(chunk_list))
+    for i, chunk in enumerate(chunk_list):
+        print(f"chunk {i} len:", len(chunk))
+    # # 只用前1个chunk
+    chunk_list = chunk_list[:1]
     # Parallelizing pretokenization
     pretokens_list = []
     processes = []
     q = Queue()
     for chunk in chunk_list:
+        print("[main] starting worker")
         p = Process(target=worker, args=(chunk, special_tokens, q))
         p.start()
         processes.append(p)
 
-    pretokens_list = [q.get() for _ in processes]
+    for i, p in enumerate(processes):
+        print(f"[main] waiting for q.get() from worker {i}")
+        pretokens = q.get()
+        print(f"[main] got result from worker {i}, len={len(pretokens)}")
+        pretokens_list.append(pretokens)
 
-    for p in processes:
+    for i, p in enumerate(processes):
+        print(f"[main] joining worker {i}")
         p.join()
+        print(f"[main] worker {i} joined")
 
     pretokens = [token for tokens in pretokens_list for token in tokens]
-
+    print("train_bpe: after pretokenization")
+    print("total pretokens:", len(pretokens))
+    print("first pretoken len:", len(pretokens[0]))
     # Merging
     counts = defaultdict(int)
     index_dict = defaultdict(set)  # Store pretoken location for each pair
 
-    for j, pretoken in enumerate(pretokens):
+    for j, pretoken in tqdm(enumerate(pretokens), total=len(pretokens), desc="Counting pairs"):
         for index1, index2 in zip(pretoken, pretoken[1:]):
             counts[index1, index2] += 1
             index_dict[index1, index2].add(j)
 
-    for i in range(num_merges):
+    for i in tqdm(range(num_merges), desc="Merging BPE pairs"):
         # Prefer lexicographically greater pair
         # Example: max([("A", "B"), ("A", "C"), ("B", "ZZ"), ("BA", "A")]) = ('BA', 'A')
         max_pair = max(
@@ -194,7 +215,7 @@ def train_bpe(
 
     return (vocab, merges)
 
-def merge(counts: dict[tuple[int, int], int], index_dict: dict[tuple[int, int],set[int]], pretokens: list[list[int]], max_pair: (int, int), new_index: int):
+def merge(counts: dict[tuple[int, int], int], index_dict: dict[tuple[int, int],set[int]], pretokens: list[list[int]], max_pair: tuple[int, int], new_index: int):
     """Merge the pairs with highest frequency and update counts, index_dict"""
     index_set = index_dict[max_pair]
 
@@ -327,12 +348,14 @@ class BPETokenizer:
 
 
 def main():
-    file_path = "./data/corpus.en"
-    vocab_size = 500
-    # special_tokens = ["<|endoftext|>"]
+    print("main() started")
+    file_path = "./data/TinyStoriesV2-GPT4-train.txt"
+    vocab_size = 280  # 临时减少
     special_tokens = ["<|endoftext|>", "<|endoftext|><|endoftext|>"]
 
+    print("calling train_bpe")
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
+    print("train_bpe finished")
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
     # print(merges)
 
@@ -342,7 +365,7 @@ def main():
     decoded = [tokenizer.decode([x]) for x in encoded]
     print("decoded:", decoded)
 
-    print(test_string == decoded)
+    print(test_string == ''.join(decoded))
 
     # print(vocab)
 
@@ -354,6 +377,8 @@ def test():
     decoded = [tokenizer.decode([x]) for x in ids]
     print(decoded)
 
-if __name__ == "__main__":
+print("BPETokenizer.py loaded")
+if __name__ == "__main__" or __name__.endswith(".BPETokenizer"):
     main()
     # test()
+print("BPETokenizer.py executed")
