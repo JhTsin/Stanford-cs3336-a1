@@ -350,12 +350,14 @@ class BPETokenizer:
 def main():
     print("main() started")
     file_path = "./data/TinyStoriesV2-GPT4-train.txt"
-    vocab_size = 280  # 临时减少
+    vocab_size = 265  # 临时减少
     special_tokens = ["<|endoftext|>", "<|endoftext|><|endoftext|>"]
 
     print("calling train_bpe")
     vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
     print("train_bpe finished")
+    for k in list(vocab.keys())[:20]:
+        print(f"{k}: {vocab[k]}")
     tokenizer = BPETokenizer(vocab, merges, special_tokens)
     # print(merges)
 
