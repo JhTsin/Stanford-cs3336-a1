@@ -19,14 +19,14 @@ class RotaryPositionalEmbedding(nn.Module):
         self.device = device
         self.rotation_matrix_table =  self.generate_rotation_matrix(theta, d_k, max_seq_len)
         self.register_buffer("rotation_matrix", self.rotation_matrix_table, persistent=False)
-
+    #2*2rotation block
     def generate_rotation_block(self, theta: float, block_index: int, seq_pos: int, d_k: int) -> torch.Tensor:
         angle = torch.tensor(seq_pos / (theta ** (2 * block_index / d_k)))
         cos = torch.cos(angle)
         sin = torch.sin(angle)
         r_matrix = torch.Tensor([[cos, -sin], [sin, cos]])
         return r_matrix
-    
+    #d_k x d_k rotation matrix
     def generate_rotation_matrix(self, theta: float, d_k: int, max_seq_len: int):
         """
         Generate the rotation matrix    
