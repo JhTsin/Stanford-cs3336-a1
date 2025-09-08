@@ -34,6 +34,11 @@ class PositionwiseFeedForward(nn.Module):
         Returns:
             Float[Tensor, "... d_model"]: Output embeddings of the same shape as the input embeddings
         """
-        output = self.w2(silu(self.w1(x)) * self.w3(x))
+        # 分割输入为两部分（假设输入维度为偶数）
+        assert x.shape[-1] % 2 == 0, "输入维度需为偶数"
+        a, b = x.chunk(2, dim=-1)
+        
+        # 直接计算输出
+        output = self.w2(silu(self.w1(a)) * self.w3(b))
         return output
     
