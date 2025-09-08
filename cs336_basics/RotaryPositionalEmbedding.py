@@ -36,7 +36,7 @@ class RotaryPositionalEmbedding(nn.Module):
             blocks = [self.generate_rotation_block(theta, k, i, d_k) for k in range(d_k // 2)]
             rotation_matrix_table[i, :, :] = torch.block_diag(*blocks)
         return rotation_matrix_table
-    
+     
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
         Run RoPE for a given input tensor.
