@@ -18,7 +18,7 @@ def softmax(x: torch.Tensor, dim: int):
         Float[Tensor, "..."]: Tensor of with the same shape as `x` with the output of
         softmax normalizing the specified `dim`.
     """
-    x_max = torch.max(x, dim, keepdim=True).values
+    x_max = torch.max(x, dim, keepdim=True).values  #x_max has the same shape as x with dim = 1
     x_stable = x - x_max
     x_exp = torch.exp(x_stable)
     output = x_exp / torch.sum(x_exp, dim=dim, keepdim=True)
@@ -39,6 +39,7 @@ def scaled_dot_product_attention(
         K (Float[Tensor, " ... keys d_k"]): Key tensor
         V (Float[Tensor, " ... values d_v"]): Values tensor
         mask (Float[Tensor, " ... queries keys"] | None): Mask tensor
+        if provided, will be used to mask the attention scores which will be -inf for the given positions
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
@@ -46,7 +47,7 @@ def scaled_dot_product_attention(
     attention_score = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys") / math.sqrt(d_k) 
 
     if mask is not None:
-        attention_score = attention_score.masked_fill(~mask, float('-inf')) # fill the mask false value with -inf
+        attention_score = attention_score.masked_fill(~mask, float('-inf')) # fill the mask true value with -inf
     
     output = softmax(attention_score, -1) @ V
     return output
@@ -105,7 +106,7 @@ class MultiheadSelfAttention(nn.Module):
 
         casual_mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
         casual_mask = casual_mask[None, None, :, :]
-        output = scaled_dot_product_attention(q, k, v, ~casual_mask)
+        output = scaled_dot_product_attention(q, k, v, ~casual_mask)    #the actual mask in the final is the mask itself, so true values are masked
         output = rearrange(
             output, "... h seq_len d_head ->  ... seq_len (h d_head)"
         )

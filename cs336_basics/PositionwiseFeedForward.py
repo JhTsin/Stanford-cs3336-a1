@@ -40,5 +40,6 @@ class PositionwiseFeedForward(nn.Module):
         
         # 直接计算输出
         output = self.w2(silu(self.w1(a)) * self.w3(b))
+        # 线性层（silu（线性层（））*线性层（））
         return output
     

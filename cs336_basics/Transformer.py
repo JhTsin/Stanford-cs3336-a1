@@ -30,7 +30,7 @@ class Transformer(nn.Module):
             max_seq_len=max_seq_len,
             theta=theta
         )
-        self.ff = PositionwiseFeedForward(d_model=d_model, d_ff=d_ff)
+        self.ff = PositionwiseFeedForward(d_model=d_model, d_ff=d_ff)   #actually SwiGLU activation func.
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -39,7 +39,7 @@ class Transformer(nn.Module):
             running the Transformer block on the input features while using RoPE.
         """
         # First sublayer for multihead self attention
-        y = x + self.attn(self.rms_norm1(x))
+        y = x + self.attn(self.rms_norm1(x))    #pre-norm style differnt from original paper
 
         # Second sublayer for feed-forward network
         output = y + self.ff(self.rms_norm2(y))
