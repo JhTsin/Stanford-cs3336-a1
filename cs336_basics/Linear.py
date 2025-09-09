@@ -35,5 +35,5 @@ class Linear(nn.Module):
         return W
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        output = x @ self.weight.T
+        output = x @ self.weight.T #x shape: (batch_size, in_features) otherwise Wx
         return output
