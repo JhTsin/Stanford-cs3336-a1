@@ -50,8 +50,9 @@ class Embedding(nn.Module):
             for j, token_id in enumerate(seq):
                 output[i][j] = self.weight[token_id]
         return output
-
-
+    #suggestions
+    # def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+    #     return self.weight[token_ids]  # 直接索引，利用PyTorch的广播机制
 
 
 
